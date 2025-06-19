@@ -31,6 +31,8 @@ struct FloatingMenu: View {
     @State private var corner: MenuCorner = Self.loadCorner()
 
     private static let userDefaultsKey = "FloatingMenuCorner"
+    @AppStorage("VideoAspectMode") private var isAspectFill: Bool = true
+
 
     var body: some View {
         GeometryReader { geometry in
@@ -113,6 +115,22 @@ struct FloatingMenu: View {
                         .background(Color.black.opacity(0.6))
                         .cornerRadius(12)
                     }
+
+                    Button(action: {
+                        isAspectFill.toggle()
+                    }) {
+                        VStack {
+                            Image(systemName: isAspectFill ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
+                                .font(.title3)
+                            Text(isAspectFill ? "Fill" : "Fit")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.white)
+                        .frame(width: 60, height: 50)
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(12)
+                    }
+
                 }
                 .transition(.opacity.combined(with: .scale))
             }

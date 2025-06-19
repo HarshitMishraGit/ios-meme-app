@@ -12,6 +12,9 @@ struct ContentView: View {
     @State private var activePlayerIndex = 0
     @State private var players: [AVPlayer?] = [nil, nil]
     @State private var shuffledVideoFiles: [VideoFile] = []
+    
+    @AppStorage("VideoAspectMode") private var isAspectFill: Bool = true
+
 
 
     var body: some View {
@@ -23,7 +26,8 @@ struct ContentView: View {
                         SlidingVideoPlayer(
                             player: players[index],
                             offsetY: activePlayerIndex == index ? slideOffset : (slideOffset > 0 ? -UIScreen.main.bounds.height : UIScreen.main.bounds.height),
-                            isTopPlayer: activePlayerIndex == index
+                            isTopPlayer: activePlayerIndex == index,
+                            aspectFill: isAspectFill
                         )
                     }
                 }

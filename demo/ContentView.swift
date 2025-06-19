@@ -9,21 +9,77 @@ import SwiftUI
 import AVKit
 import UniformTypeIdentifiers
 
+// Video file wrapper to handle security-scoped resources
+struct VideoFile: Equatable {
+    let url: URL
+    let bookmark: Data?
+    let name: String
+    
+    // Equatable conformance
+    static func == (lhs: VideoFile, rhs: VideoFile) -> Bool {
+        return lhs.url == rhs.url && lhs.name == rhs.name
+    }
+    
+    init(url: URL) {
+        self.url = url
+        self.name = url.lastPathComponent
+        
+        // Create security-scoped bookmark
+        do {
+            self.bookmark = try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+        } catch {
+            print("Failed to create bookmark for \(url.lastPathComponent): \(error)")
+            self.bookmark = nil
+        }
+    }
+    
+    // Get URL with proper security access
+    func getAccessibleURL() -> URL? {
+        guard let bookmark = bookmark else {
+            print("No bookmark available for \(name)")
+            return url // Try original URL as fallback
+        }
+        
+        do {
+            var isStale = false
+            let resolvedURL = try URL(resolvingBookmarkData: bookmark, options: .withoutUI, relativeTo: nil, bookmarkDataIsStale: &isStale)
+            
+            if isStale {
+                print("Bookmark is stale for \(name)")
+                return url // Fallback to original URL
+            }
+            
+            // Start accessing the security-scoped resource
+            guard resolvedURL.startAccessingSecurityScopedResource() else {
+                print("Failed to start accessing security-scoped resource for \(name)")
+                return url // Fallback to original URL
+            }
+            
+            return resolvedURL
+        } catch {
+            print("Failed to resolve bookmark for \(name): \(error)")
+            return url // Fallback to original URL
+        }
+    }
+}
+
 struct ContentView: View {
     @State private var isPickerPresented = false
-    @State private var videoURLs: [URL] = []
+    @State private var videoFiles: [VideoFile] = []
     @State private var currentVideoIndex = 0
     @State private var showMenu = false
     @State private var player: AVPlayer?
+    @State private var currentAccessingURL: URL? // Track currently accessing URL for cleanup
     
     var body: some View {
         ZStack {
             // Full-screen video player
-            if !videoURLs.isEmpty {
+            if !videoFiles.isEmpty {
                 FullScreenVideoPlayer(
-                    videoURLs: videoURLs,
+                    videoFiles: videoFiles,
                     currentIndex: $currentVideoIndex,
-                    player: $player
+                    player: $player,
+                    currentAccessingURL: $currentAccessingURL
                 )
                 .ignoresSafeArea()
                 .gesture(
@@ -101,8 +157,8 @@ struct ContentView: View {
                                 }
                                 
                                 // Video count indicator
-                                if !videoURLs.isEmpty {
-                                    Text("\(currentVideoIndex + 1)/\(videoURLs.count)")
+                                if !videoFiles.isEmpty {
+                                    Text("\(currentVideoIndex + 1)/\(videoFiles.count)")
                                         .font(.caption)
                                         .foregroundColor(.white)
                                         .padding(.horizontal, 8)
@@ -121,11 +177,11 @@ struct ContentView: View {
                 Spacer()
 
                 // Video filename overlay at bottom
-            if !videoURLs.isEmpty {
+            if !videoFiles.isEmpty {
                 VStack {
                     Spacer()
                     HStack {
-                        Text(videoURLs[currentVideoIndex].lastPathComponent)
+                        Text(videoFiles[currentVideoIndex].name)
                             .font(.headline)
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
@@ -142,9 +198,9 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $isPickerPresented) {
-            FolderPicker(videoURLs: $videoURLs, currentIndex: $currentVideoIndex)
+            FolderPicker(videoFiles: $videoFiles, currentIndex: $currentVideoIndex)
         }
-        .onChange(of: videoURLs) { _, newVideos in
+        .onChange(of: videoFiles) { _, newVideos in
             if !newVideos.isEmpty {
                 currentVideoIndex = 0
                 playCurrentVideo()
@@ -153,10 +209,14 @@ struct ContentView: View {
         .onChange(of: currentVideoIndex) { _, _ in
             playCurrentVideo()
         }
+        .onDisappear {
+            // Clean up security-scoped resource access
+            cleanupCurrentAccess()
+        }
     }
     
     private func nextVideo() {
-        if currentVideoIndex < videoURLs.count - 1 {
+        if currentVideoIndex < videoFiles.count - 1 {
             currentVideoIndex += 1
         }
     }
@@ -167,18 +227,42 @@ struct ContentView: View {
         }
     }
     
+    private func cleanupCurrentAccess() {
+        if let url = currentAccessingURL {
+            url.stopAccessingSecurityScopedResource()
+            currentAccessingURL = nil
+        }
+    }
+    
     private func playCurrentVideo() {
-        guard !videoURLs.isEmpty else { return }
-        let currentURL = videoURLs[currentVideoIndex]
-        player = AVPlayer(url: currentURL)
+        guard !videoFiles.isEmpty else { return }
+        
+        // Clean up previous access
+        cleanupCurrentAccess()
+        
+        let videoFile = videoFiles[currentVideoIndex]
+        
+        guard let accessibleURL = videoFile.getAccessibleURL() else {
+            print("Failed to get accessible URL for \(videoFile.name)")
+            return
+        }
+        
+        // Store the URL for cleanup later
+        currentAccessingURL = accessibleURL
+        
+        print("Playing video: \(videoFile.name)")
+        print("URL: \(accessibleURL)")
+        
+        player = AVPlayer(url: accessibleURL)
         player?.play()
     }
 }
 
 struct FullScreenVideoPlayer: View {
-    let videoURLs: [URL]
+    let videoFiles: [VideoFile]
     @Binding var currentIndex: Int
     @Binding var player: AVPlayer?
+    @Binding var currentAccessingURL: URL?
     
     var body: some View {
         if let player = player {
@@ -193,7 +277,7 @@ struct FullScreenVideoPlayer: View {
 }
 
 struct FolderPicker: UIViewControllerRepresentable {
-    @Binding var videoURLs: [URL]
+    @Binding var videoFiles: [VideoFile]
     @Binding var currentIndex: Int
     @Environment(\.dismiss) private var dismiss
     
@@ -220,9 +304,11 @@ struct FolderPicker: UIViewControllerRepresentable {
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let folderURL = urls.first else { return }
             
+            print("Selected folder: \(folderURL)")
+            
             // Start accessing the security-scoped resource
             guard folderURL.startAccessingSecurityScopedResource() else {
-                print("Failed to access security-scoped resource")
+                print("Failed to access security-scoped resource for folder")
                 return
             }
             
@@ -231,8 +317,8 @@ struct FolderPicker: UIViewControllerRepresentable {
             }
             
             // Get video files from the selected folder
-            let videoExtensions = ["mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "webm"]
-            var videos: [URL] = []
+            let videoExtensions = ["mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "webm", "mpg", "mpeg", "3gp"]
+            var videoFiles: [VideoFile] = []
             
             do {
                 let contents = try FileManager.default.contentsOfDirectory(
@@ -241,21 +327,26 @@ struct FolderPicker: UIViewControllerRepresentable {
                     options: [.skipsHiddenFiles]
                 )
                 
+                print("Found \(contents.count) items in folder")
+                
                 for url in contents {
                     let resourceValues = try url.resourceValues(forKeys: [.isRegularFileKey])
                     if resourceValues.isRegularFile == true {
                         let fileExtension = url.pathExtension.lowercased()
                         if videoExtensions.contains(fileExtension) {
-                            videos.append(url)
+                            print("Found video file: \(url.lastPathComponent)")
+                            videoFiles.append(VideoFile(url: url))
                         }
                     }
                 }
                 
                 // Sort videos by name
-                videos.sort { $0.lastPathComponent < $1.lastPathComponent }
+                videoFiles.sort { $0.name < $1.name }
+                
+                print("Total video files found: \(videoFiles.count)")
                 
                 DispatchQueue.main.async {
-                    self.parent.videoURLs = videos
+                    self.parent.videoFiles = videoFiles
                     self.parent.currentIndex = 0
                     self.parent.dismiss()
                 }

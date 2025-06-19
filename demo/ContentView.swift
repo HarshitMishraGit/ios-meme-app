@@ -237,6 +237,10 @@ struct ContentView: View {
     private func playCurrentVideo() {
         guard !videoFiles.isEmpty else { return }
         
+        // Stop current video if playing
+        player?.pause()
+        player = nil
+        
         // Clean up previous access
         cleanupCurrentAccess()
         

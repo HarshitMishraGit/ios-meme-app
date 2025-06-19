@@ -57,6 +57,15 @@ struct FolderPicker: UIViewControllerRepresentable {
                     self.parent.currentIndex = 0
                     self.parent.dismiss()
                 }
+                
+                if let bookmark = try? folderURL.bookmarkData(
+                    options: .withoutImplicitSecurityScope,
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                ) {
+                    UserDefaults.standard.set(bookmark, forKey: "SavedFolderBookmark")
+                }
+
             } catch {
                 print("Error loading videos: \(error)")
             }

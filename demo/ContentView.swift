@@ -81,6 +81,9 @@ struct ContentView: View {
                 }
             }
         }
+        .onAppear {
+             loadSavedFolderIfAny()
+           }
         .sheet(isPresented: $isPickerPresented) {
             FolderPicker(videoFiles: $videoFiles, currentIndex: $currentVideoIndex)
         }
@@ -198,5 +201,66 @@ struct ContentView: View {
             currentAccessingURL = nil
         }
     }
+    
+    
+    private func loadSavedFolderIfAny() {
+        guard let bookmark = UserDefaults.standard.data(forKey: "SavedFolderBookmark") else { return }
+
+        var isStale = false
+        do {
+            let resolvedURL = try URL(
+                resolvingBookmarkData: bookmark,
+                options: [.withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+
+            guard resolvedURL.startAccessingSecurityScopedResource() else {
+                print("Failed to access saved folder")
+                return
+            }
+
+            loadVideos(from: resolvedURL)
+
+            // No need to stop access immediately — keep until app closes
+        } catch {
+            print("Error resolving saved folder: \(error)")
+        }
+    }
+
+    private func loadVideos(from folderURL: URL) {
+        let videoExtensions = ["mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "webm", "mpg", "mpeg", "3gp"]
+
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: folderURL,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+
+            var found: [VideoFile] = []
+
+            for url in contents {
+                let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+                if values.isRegularFile == true && videoExtensions.contains(url.pathExtension.lowercased()) {
+                    found.append(VideoFile(url: url))
+                }
+            }
+
+            // shuffle the videos on every launch
+            found.shuffle()
+
+            DispatchQueue.main.async {
+                videoFiles = found
+                currentVideoIndex = 0
+                shuffledVideoFiles = found.shuffled()
+                preloadPlayers()
+            }
+
+        } catch {
+            print("Failed to load saved folder contents: \(error)")
+        }
+    }
 }
+
 

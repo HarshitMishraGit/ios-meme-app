@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var isAnimating = false
     @State private var activePlayerIndex = 0
     @State private var players: [AVPlayer?] = [nil, nil]
+    @State private var shuffledVideoFiles: [VideoFile] = []
+
 
     var body: some View {
         ZStack {
@@ -85,6 +87,7 @@ struct ContentView: View {
         .onChange(of: videoFiles) { _, new in
             if !new.isEmpty {
                 currentVideoIndex = 0
+                shuffledVideoFiles = new.shuffled()
                 preloadPlayers()
             }
         }
@@ -142,12 +145,37 @@ struct ContentView: View {
 
     private func playRandomVideo() {
         guard !videoFiles.isEmpty else { return }
-        let randomIndex = Int.random(in: 0..<videoFiles.count)
-        if randomIndex != currentVideoIndex {
-            currentVideoIndex = randomIndex
-            preloadPlayers()
+
+        cleanupCurrentAccess()
+
+        // Reset if exhausted
+        if shuffledVideoFiles.isEmpty {
+            shuffledVideoFiles = videoFiles.shuffled()
+        }
+
+        // Pop one random item (from front)
+        let nextVideo = shuffledVideoFiles.removeFirst()
+
+        // Get the new index in main list (for UI display)
+        if let newIndex = videoFiles.firstIndex(of: nextVideo) {
+            currentVideoIndex = newIndex
+        }
+
+        // Clean up current player
+        players[activePlayerIndex]?.pause()
+        players[activePlayerIndex] = nil
+
+        // Load into the inactive buffer and switch
+        let inactiveIndex = (activePlayerIndex + 1) % 2
+
+        if let url = nextVideo.getAccessibleURL() {
+            players[inactiveIndex] = AVPlayer(url: url)
+            activePlayerIndex = inactiveIndex
+            currentAccessingURL = url
+            players[activePlayerIndex]?.play()
         }
     }
+
 
     private func preloadPlayers() {
         cleanupCurrentAccess()

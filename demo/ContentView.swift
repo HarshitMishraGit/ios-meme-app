@@ -70,6 +70,8 @@ struct ContentView: View {
     @State private var showMenu = false
     @State private var player: AVPlayer?
     @State private var currentAccessingURL: URL? // Track currently accessing URL for cleanup
+    @State private var slideOffset: CGFloat = 0
+    @State private var isAnimating = false
     
     var body: some View {
         ZStack {
@@ -82,16 +84,41 @@ struct ContentView: View {
                     currentAccessingURL: $currentAccessingURL
                 )
                 .ignoresSafeArea()
+                .offset(y: slideOffset)
                 .gesture(
                     DragGesture()
+                        .onChanged { value in
+                            if !isAnimating {
+                                slideOffset = value.translation.height
+                            }
+                        }
                         .onEnded { value in
-                            if abs(value.translation.height) > 50 {
-                                if value.translation.height < 0 {
-                                    // Swipe up - next video
-                                    nextVideo()
-                                } else {
-                                    // Swipe down - previous video
-                                    previousVideo()
+                            if abs(value.translation.height) > 50 && !isAnimating {
+                                isAnimating = true
+                                let direction = value.translation.height < 0 ? -1.0 : 1.0
+                                
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    slideOffset = direction * UIScreen.main.bounds.height
+                                }
+                                
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                    if direction < 0 {
+                                        nextVideo()
+                                    } else {
+                                        previousVideo()
+                                    }
+                                    
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        slideOffset = 0
+                                    }
+                                    
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        isAnimating = false
+                                    }
+                                }
+                            } else {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    slideOffset = 0
                                 }
                             }
                         }

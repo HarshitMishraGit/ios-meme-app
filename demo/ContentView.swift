@@ -193,6 +193,20 @@ struct ContentView: View {
                                         .background(Color.black.opacity(0.6))
                                         .cornerRadius(8)
                                 }
+                                
+                                // Random video button
+                                Button(action: playRandomVideo) {
+                                    VStack {
+                                        Image(systemName: "shuffle")
+                                            .font(.title3)
+                                        Text("Random")
+                                            .font(.caption)
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(width: 60, height: 50)
+                                    .background(Color.black.opacity(0.6))
+                                    .cornerRadius(12)
+                                }
                             }
                             .transition(.opacity.combined(with: .scale))
                         }
@@ -252,6 +266,12 @@ struct ContentView: View {
         if currentVideoIndex > 0 {
             currentVideoIndex -= 1
         }
+    }
+    
+    private func playRandomVideo() {
+        guard !videoFiles.isEmpty else { return }
+        let randomIndex = Int.random(in: 0..<videoFiles.count)
+        currentVideoIndex = randomIndex
     }
     
     private func cleanupCurrentAccess() {

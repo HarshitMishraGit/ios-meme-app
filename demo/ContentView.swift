@@ -6,22 +6,26 @@ struct ContentView: View {
     @State private var videoFiles: [VideoFile] = []
     @State private var currentVideoIndex = 0
     @State private var showMenu = false
-    @State private var player: AVPlayer?
     @State private var currentAccessingURL: URL?
     @State private var slideOffset: CGFloat = 0
     @State private var isAnimating = false
+    @State private var activePlayerIndex = 0
+    @State private var players: [AVPlayer?] = [nil, nil]
 
     var body: some View {
         ZStack {
             if !videoFiles.isEmpty {
-                FullScreenVideoPlayer(
-                    videoFiles: videoFiles,
-                    currentIndex: $currentVideoIndex,
-                    player: $player,
-                    currentAccessingURL: $currentAccessingURL
-                )
+                // Render both players for animation
+                ZStack {
+                    ForEach(0..<2, id: \.self) { index in
+                        SlidingVideoPlayer(
+                            player: players[index],
+                            offsetY: activePlayerIndex == index ? slideOffset : (slideOffset > 0 ? -UIScreen.main.bounds.height : UIScreen.main.bounds.height),
+                            isTopPlayer: activePlayerIndex == index
+                        )
+                    }
+                }
                 .ignoresSafeArea()
-                .offset(y: slideOffset)
                 .gesture(
                     DragGesture()
                         .onChanged { value in
@@ -81,11 +85,8 @@ struct ContentView: View {
         .onChange(of: videoFiles) { _, new in
             if !new.isEmpty {
                 currentVideoIndex = 0
-                playCurrentVideo()
+                preloadPlayers()
             }
-        }
-        .onChange(of: currentVideoIndex) { _, _ in
-            playCurrentVideo()
         }
         .onDisappear {
             cleanupCurrentAccess()
@@ -95,27 +96,43 @@ struct ContentView: View {
     private func handleSwipe(value: DragGesture.Value) {
         if abs(value.translation.height) > 50 && !isAnimating {
             isAnimating = true
-            let direction = value.translation.height < 0 ? -1.0 : 1.0
+            let direction: Int = value.translation.height < 0 ? 1 : -1
+            let nextIndex = currentVideoIndex + direction
 
-            withAnimation(.easeInOut(duration: 0.3)) {
-                slideOffset = direction * UIScreen.main.bounds.height
+            guard nextIndex >= 0, nextIndex < videoFiles.count else {
+                withAnimation { slideOffset = 0 }
+                isAnimating = false
+                return
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                if direction < 0 {
-                    nextVideo()
-                } else {
-                    previousVideo()
-                }
+            let inactiveIndex = (activePlayerIndex + 1) % 2
+            let nextVideo = videoFiles[nextIndex]
+            if let url = nextVideo.getAccessibleURL() {
+                players[inactiveIndex] = AVPlayer(url: url)
+            }
 
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    slideOffset = 0
-                }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                slideOffset = CGFloat(direction) * -UIScreen.main.bounds.height
+            }
 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                // Pause and clear the old player
+                players[activePlayerIndex]?.pause()
+                players[activePlayerIndex] = nil
+
+                // Switch to new player
+                activePlayerIndex = inactiveIndex
+                currentVideoIndex = nextIndex
+                slideOffset = 0
+
+                // Start new player
+                players[activePlayerIndex]?.play()
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isAnimating = false
                 }
             }
+
         } else {
             withAnimation(.easeOut(duration: 0.2)) {
                 slideOffset = 0
@@ -123,21 +140,28 @@ struct ContentView: View {
         }
     }
 
-    private func nextVideo() {
-        if currentVideoIndex < videoFiles.count - 1 {
-            currentVideoIndex += 1
-        }
-    }
-
-    private func previousVideo() {
-        if currentVideoIndex > 0 {
-            currentVideoIndex -= 1
-        }
-    }
-
     private func playRandomVideo() {
         guard !videoFiles.isEmpty else { return }
-        currentVideoIndex = Int.random(in: 0..<videoFiles.count)
+        let randomIndex = Int.random(in: 0..<videoFiles.count)
+        if randomIndex != currentVideoIndex {
+            currentVideoIndex = randomIndex
+            preloadPlayers()
+        }
+    }
+
+    private func preloadPlayers() {
+        cleanupCurrentAccess()
+        activePlayerIndex = 0
+        
+        players[1]?.pause()
+        players[1] = nil
+        
+        if let url = videoFiles[currentVideoIndex].getAccessibleURL() {
+            currentAccessingURL = url
+            players[0] = AVPlayer(url: url)
+            players[0]?.play()
+            players[1] = nil // reset other buffer
+        }
     }
 
     private func cleanupCurrentAccess() {
@@ -145,18 +169,6 @@ struct ContentView: View {
             url.stopAccessingSecurityScopedResource()
             currentAccessingURL = nil
         }
-    }
-
-    private func playCurrentVideo() {
-        guard !videoFiles.isEmpty else { return }
-        player?.pause()
-        player = nil
-        cleanupCurrentAccess()
-        let videoFile = videoFiles[currentVideoIndex]
-        guard let url = videoFile.getAccessibleURL() else { return }
-        currentAccessingURL = url
-        player = AVPlayer(url: url)
-        player?.play()
     }
 }
 

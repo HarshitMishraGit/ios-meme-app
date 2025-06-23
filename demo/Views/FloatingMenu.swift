@@ -113,36 +113,13 @@ struct FloatingMenu: View {
                     }
 
                     // Random + History Controls
-                    HStack(spacing: 0) {
-                        Button(action: playRandomPrev) {
-                            Image(systemName: "chevron.left")
-                                .font(.title3)
-                                .foregroundColor(canGoPrev ? .white : .gray)
-                                .frame(width: 36, height: 50)
-                                .background(Color.black.opacity(0.6))
-                                .cornerRadius(12)
-                        }
-                        .disabled(!canGoPrev)
-                        Button(action: playRandomVideo) {
-                            VStack {
-                                Image(systemName: "shuffle").font(.title3)
-                                Text("Random").font(.caption)
-                            }
-                            .foregroundColor(.white)
-                            .frame(width: 60, height: 50)
-                            .background(Color.black.opacity(0.6))
-                            .cornerRadius(12)
-                        }
-                        Button(action: playRandomNext) {
-                            Image(systemName: "chevron.right")
-                                .font(.title3)
-                                .foregroundColor(canGoNext ? .white : .gray)
-                                .frame(width: 36, height: 50)
-                                .background(Color.black.opacity(0.6))
-                                .cornerRadius(12)
-                        }
-                        .disabled(!canGoNext)
-                    }
+                    RandomHistoryButton(
+                        playRandom: playRandomVideo,
+                        playPrev: playRandomPrev,
+                        playNext: playRandomNext,
+                        canGoPrev: canGoPrev,
+                        canGoNext: canGoNext
+                    )
 
                     Button(action: {
                         isAspectFill.toggle()
@@ -302,5 +279,84 @@ struct SeekSlider: View {
                 }
             }
         )
+    }
+}
+
+struct RandomHistoryButton: View {
+    let playRandom: () -> Void
+    let playPrev: () -> Void
+    let playNext: () -> Void
+    let canGoPrev: Bool
+    let canGoNext: Bool
+    @State private var dragOffset: CGFloat = 0
+    @State private var showIcon: String? = nil
+    @State private var showRed: Bool = false
+    @State private var isActionInProgress: Bool = false
+    let maxOffset: CGFloat = 20
+    var body: some View {
+        ZStack {
+            VStack {
+                Image(systemName: showIcon ?? "shuffle")
+                    .font(.title3)
+                    .foregroundColor(showRed ? .red : .white)
+                    .frame(width: 60, height: 50)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(12)
+                Text("Random").font(.caption).foregroundColor(.white)
+            }
+            .offset(x: dragOffset)
+            .gesture(
+                DragGesture(minimumDistance: 10, coordinateSpace: .local)
+                    .onChanged { value in
+                        guard !isActionInProgress else { return }
+                        let clamped = min(max(value.translation.width, -maxOffset), maxOffset)
+                        dragOffset = clamped
+                        if clamped > 15 {
+                            showIcon = canGoPrev ? "chevron.left" : "xmark"
+                            showRed = !canGoPrev
+                        } else if clamped < -15 {
+                            showIcon = canGoNext ? "chevron.right" : "xmark"
+                            showRed = !canGoNext
+                        } else {
+                            showIcon = nil
+                            showRed = false
+                        }
+                    }
+                    .onEnded { value in
+                        guard !isActionInProgress else { return }
+                        isActionInProgress = true
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            if dragOffset > 15 {
+                                if canGoPrev { playPrev() }
+                            } else if dragOffset < -15 {
+                                if canGoNext { playNext() }
+                            } else {
+                                playRandom()
+                            }
+                            dragOffset = 0
+                            showIcon = nil
+                            showRed = false
+                        }
+                        // Allow new drags after a short delay to let parent update state
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            isActionInProgress = false
+                        }
+                    }
+            )
+            .onTapGesture {
+                guard !isActionInProgress else { return }
+                isActionInProgress = true
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    playRandom()
+                    dragOffset = 0
+                    showIcon = nil
+                    showRed = false
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    isActionInProgress = false
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: dragOffset)
+        }
     }
 }

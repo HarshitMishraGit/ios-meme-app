@@ -16,6 +16,10 @@ enum MediaType: String, Codable {
     case unknown // For any unsupported types, good for error handling
 }
 
+let videoExtensions = ["mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "webm", "mpg", "mpeg", "3gp"]
+let imageExtensions = ["png", "jpg", "jpeg", "heic"] // Added HEIC
+let gifExtensions = ["gif"]
+
 struct MediaFile: Identifiable, Equatable {
     let id = UUID()
     let url: URL
@@ -38,9 +42,6 @@ struct MediaFile: Identifiable, Equatable {
     // Helper to determine media type based on extension
     private static func determineMediaType(from extensionString: String) -> MediaType {
         let lowercasedExtension = extensionString.lowercased()
-        let videoExtensions = ["mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "webm", "mpg", "mpeg", "3gp"]
-        let imageExtensions = ["png", "jpg", "jpeg", "heic"] // Added HEIC
-        let gifExtensions = ["gif"]
 
         if videoExtensions.contains(lowercasedExtension) {
             return .video

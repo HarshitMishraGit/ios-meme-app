@@ -6,82 +6,73 @@
 //
 
 import SwiftUI
-import UniformTypeIdentifiers // For UTType
+import UniformTypeIdentifiers
 
 struct FolderPicker: UIViewControllerRepresentable {
-    @Binding var mediaFiles: [MediaFile] // Changed to mediaFiles
-    @Binding var currentIndex: Int // Changed to currentIndex
+    @Binding var mediaFiles: [MediaFile]
+    @Binding var currentIndex: Int
+    @Environment(\.dismiss) private var dismiss
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let supportedTypes: [UTType] = [
-            .movie, // Covers .mp4, .mov, etc.
-            .image, // Covers .png, .jpeg, .heic
-            UTType("com.compuserve.gif")! // Specific for GIF, as .image might not cover it explicitly for picker
-        ]
-
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: supportedTypes, asCopy: false)
-        picker.allowsMultipleSelection = false // Keep it to single folder selection
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.folder], asCopy: false)
         picker.delegate = context.coordinator
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) { }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 
     class Coordinator: NSObject, UIDocumentPickerDelegate {
-        var parent: FolderPicker
+        let parent: FolderPicker
 
-        init(parent: FolderPicker) {
+        init(_ parent: FolderPicker) {
             self.parent = parent
         }
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let folderURL = urls.first else { return }
+            guard folderURL.startAccessingSecurityScopedResource() else { return }
 
-            // Persist the security-scoped bookmark
+            defer { folderURL.stopAccessingSecurityScopedResource() }
+
+            let extensions =  videoExtensions + imageExtensions + gifExtensions
+            var foundMedia: [MediaFile] = []
+
             do {
-                let bookmarkData = try folderURL.bookmarkData(includingResourceValuesForKeys: nil, relativeTo: nil)
-                UserDefaults.standard.set(bookmarkData, forKey: "SavedFolderBookmark")
-            } catch {
-                print("Error saving bookmark data: \(error)")
-            }
-
-            // Start accessing the security-scoped resource
-            _ = folderURL.startAccessingSecurityScopedResource()
-            
-            loadMedia(from: folderURL) // Renamed for clarity
-        }
-
-        private func loadMedia(from folderURL: URL) {
-            do {
-                let contents = try FileManager.default.contentsOfDirectory(
-                    at: folderURL,
-                    includingPropertiesForKeys: [.isRegularFileKey],
-                    options: [.skipsHiddenFiles]
-                )
-
-                var found: [MediaFile] = []
+                let contents = try FileManager.default.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: [.isRegularFileKey], options: .skipsHiddenFiles)
                 for url in contents {
                     let values = try url.resourceValues(forKeys: [.isRegularFileKey])
-                    if values.isRegularFile == true {
-                        let mediaFile = MediaFile(url: url)
-                        if mediaFile.type != .unknown {
-                            found.append(mediaFile)
-                        }
+                    if values.isRegularFile == true && extensions.contains(url.pathExtension.lowercased()) {
+                        foundMedia.append(MediaFile(url: url))
                     }
                 }
 
+                foundMedia.shuffle()
+                
                 DispatchQueue.main.async {
-                    self.parent.mediaFiles = found
+                    self.parent.mediaFiles = foundMedia
                     self.parent.currentIndex = 0
+                    self.parent.dismiss()
                 }
+                
+                if let bookmark = try? folderURL.bookmarkData(
+                    options: .withoutImplicitSecurityScope,
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                ) {
+                    UserDefaults.standard.set(bookmark, forKey: "SavedFolderBookmark")
+                }
+
             } catch {
-                print("Failed to load folder contents: \(error)")
+                print("Error loading videos: \(error)")
             }
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            parent.dismiss()
         }
     }
 }
-

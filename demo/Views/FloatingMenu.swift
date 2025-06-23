@@ -27,7 +27,10 @@ struct FloatingMenu: View {
     let videoFiles: [MediaFile]
     let currentVideoIndex: Int
     let playRandomVideo: () -> Void
-    
+    let playRandomPrev: () -> Void
+    let playRandomNext: () -> Void
+    let canGoPrev: Bool
+    let canGoNext: Bool
     @Binding var seekDuration: Double
 
     @State private var dragOffset: CGSize = .zero
@@ -109,15 +112,36 @@ struct FloatingMenu: View {
                             .cornerRadius(8)
                     }
 
-                    Button(action: playRandomVideo) {
-                        VStack {
-                            Image(systemName: "shuffle").font(.title3)
-                            Text("Random").font(.caption)
+                    // Random + History Controls
+                    HStack(spacing: 0) {
+                        Button(action: playRandomPrev) {
+                            Image(systemName: "chevron.left")
+                                .font(.title3)
+                                .foregroundColor(canGoPrev ? .white : .gray)
+                                .frame(width: 36, height: 50)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(12)
                         }
-                        .foregroundColor(.white)
-                        .frame(width: 60, height: 50)
-                        .background(Color.black.opacity(0.6))
-                        .cornerRadius(12)
+                        .disabled(!canGoPrev)
+                        Button(action: playRandomVideo) {
+                            VStack {
+                                Image(systemName: "shuffle").font(.title3)
+                                Text("Random").font(.caption)
+                            }
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: 50)
+                            .background(Color.black.opacity(0.6))
+                            .cornerRadius(12)
+                        }
+                        Button(action: playRandomNext) {
+                            Image(systemName: "chevron.right")
+                                .font(.title3)
+                                .foregroundColor(canGoNext ? .white : .gray)
+                                .frame(width: 36, height: 50)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(12)
+                        }
+                        .disabled(!canGoNext)
                     }
 
                     Button(action: {

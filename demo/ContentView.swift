@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var activePlayerIndex = 0
     @State private var players: [AVPlayer?] = [nil, nil] // Still for videos
     @State private var shuffledMediaFiles: [MediaFile] = [] // Changed from shuffledVideoFiles
+    @State private var randomHistory: [Int] = [] // Indices of mediaFiles shown in random mode
+    @State private var randomHistoryIndex: Int = -1 // Current position in history
 
     @AppStorage("VideoAspectMode") private var isAspectFill: Bool = true // Keep for video aspect
     @AppStorage("SeekDuration") private var storedSeekDuration: Double = 5.0
@@ -92,6 +94,10 @@ struct ContentView: View {
                 videoFiles: mediaFiles, // Pass mediaFiles
                 currentVideoIndex: currentMediaIndex, // Pass currentMediaIndex
                 playRandomVideo: playRandomMedia, // Renamed for clarity
+                playRandomPrev: playRandomPrev,
+                playRandomNext: playRandomNext,
+                canGoPrev: randomHistoryIndex > 0,
+                canGoNext: randomHistoryIndex >= 0 && randomHistoryIndex < randomHistory.count - 1,
                 seekDuration: $seekDuration
             )
 
@@ -184,30 +190,29 @@ struct ContentView: View {
 
     private func playRandomMedia() {
         guard !mediaFiles.isEmpty else { return }
-
         cleanupCurrentAccess()
-
+        // If we are not at the end of history, truncate forward history
+        if randomHistoryIndex < randomHistory.count - 1 {
+            randomHistory = Array(randomHistory.prefix(randomHistoryIndex + 1))
+        }
         // Reset if exhausted
         if shuffledMediaFiles.isEmpty {
             shuffledMediaFiles = mediaFiles.shuffled()
         }
-
         // Pop one random item (from front)
         let nextMedia = shuffledMediaFiles.removeFirst()
-
         // Get the new index in main list (for UI display)
         if let newIndex = mediaFiles.firstIndex(of: nextMedia) {
             currentMediaIndex = newIndex
+            randomHistory.append(newIndex)
+            randomHistoryIndex = randomHistory.count - 1
         }
-
         // Clean up current player if it's a video
         players[activePlayerIndex]?.pause()
         if mediaFiles[currentMediaIndex].type == .video {
             players[activePlayerIndex] = nil
         }
         
-
-
         // Load and play the new media
         if let url = nextMedia.getAccessibleURL() {
             currentAccessingURL = url
@@ -221,16 +226,46 @@ struct ContentView: View {
         }
     }
 
+    private func playRandomPrev() {
+        guard randomHistoryIndex > 0 else { return }
+        randomHistoryIndex -= 1
+        let prevIndex = randomHistory[randomHistoryIndex]
+        currentMediaIndex = prevIndex
+        // Update player for video
+        players[activePlayerIndex]?.pause()
+        players[activePlayerIndex] = nil
+        let media = mediaFiles[prevIndex]
+        if media.type == .video, let url = media.getAccessibleURL() {
+            let inactiveIndex = (activePlayerIndex + 1) % 2
+            players[inactiveIndex] = AVPlayer(url: url)
+            activePlayerIndex = inactiveIndex
+            players[activePlayerIndex]?.play()
+        }
+    }
+
+    private func playRandomNext() {
+        guard randomHistoryIndex >= 0 && randomHistoryIndex < randomHistory.count - 1 else { return }
+        randomHistoryIndex += 1
+        let nextIndex = randomHistory[randomHistoryIndex]
+        currentMediaIndex = nextIndex
+        // Update player for video
+        players[activePlayerIndex]?.pause()
+        players[activePlayerIndex] = nil
+        let media = mediaFiles[nextIndex]
+        if media.type == .video, let url = media.getAccessibleURL() {
+            let inactiveIndex = (activePlayerIndex + 1) % 2
+            players[inactiveIndex] = AVPlayer(url: url)
+            activePlayerIndex = inactiveIndex
+            players[activePlayerIndex]?.play()
+        }
+    }
+
     private func preloadMedia() {
         cleanupCurrentAccess()
         activePlayerIndex = 0 // Reset active player to the first one
-
-        // Pause and clear the secondary player if it holds a video
         players[1]?.pause()
         players[1] = nil
-
         guard !mediaFiles.isEmpty else { return }
-
         let currentMedia = mediaFiles[currentMediaIndex]
         if let url = currentMedia.getAccessibleURL() {
             currentAccessingURL = url
@@ -239,8 +274,10 @@ struct ContentView: View {
                 players[0] = AVPlayer(url: url)
                 players[0]?.play()
             }
-            // Images and GIFs don't need AVPlayer preloading
         }
+        // Reset random history on folder change
+        randomHistory = []
+        randomHistoryIndex = -1
     }
 
     private func cleanupCurrentAccess() {

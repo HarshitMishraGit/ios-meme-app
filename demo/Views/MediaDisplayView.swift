@@ -23,7 +23,7 @@ struct MediaDisplayView: View {
         self.aspectFill = aspectFill
         
         
-        print("MediaDisplayView showing \(mediaFile.name)")
+//        print("MediaDisplayView showing \(mediaFile.name)")
     }
 
     var body: some View {

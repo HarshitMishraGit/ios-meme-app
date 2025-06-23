@@ -128,12 +128,26 @@ struct SlidingVideoPlayer: View {
     }
 
     private func seek(seconds: Double) {
-        guard let player = player else { return }
+        guard let player = player,
+              let item = player.currentItem else { return }
+
         let currentTime = player.currentTime()
         let delta = CMTime(seconds: seconds, preferredTimescale: currentTime.timescale)
-        let newTime = currentTime + delta
-        player.seek(to: newTime, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
-            // Optional: Handle completion of seek
+        var newTime = currentTime + delta
+
+        // Clamp to valid range
+        let zero = CMTime.zero
+        let duration = item.duration.isIndefinite ? CMTime(seconds: 600, preferredTimescale: currentTime.timescale) : item.duration
+        if newTime < zero {
+            newTime = zero
+        } else if newTime > duration {
+            newTime = duration - CMTime(seconds: 0.1, preferredTimescale: currentTime.timescale) // Slightly less than duration
+        }
+
+        player.seek(to: newTime, toleranceBefore: .zero, toleranceAfter: .zero) { finished in
+            print(">>> seek completed \(finished), time: \(CMTimeGetSeconds(newTime))")
+//            player.play()
         }
     }
+
 }

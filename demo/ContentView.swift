@@ -116,6 +116,8 @@ struct ContentView: View {
                     }
                 }
                 .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .background(Color.black.ignoresSafeArea())
                 .gesture(
                     DragGesture()
                         .onChanged { value in

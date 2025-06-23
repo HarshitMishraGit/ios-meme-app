@@ -32,7 +32,7 @@ struct MediaDisplayView: View {
         Group {
             switch mediaFile.type {
             case .video:
-                SlidingVideoPlayer(
+                ControlledVideoPlayer(
                     player: player,
                     offsetY: offsetY,
                     isTopPlayer: isTopPlayer,

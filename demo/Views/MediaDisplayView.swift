@@ -14,13 +14,15 @@ struct MediaDisplayView: View {
     let offsetY: CGFloat
     let isTopPlayer: Bool
     let aspectFill: Bool
+    let seekDuration: Double
     
-    init(mediaFile: MediaFile, player: AVPlayer?, offsetY: CGFloat, isTopPlayer: Bool, aspectFill: Bool) {
+    init(mediaFile: MediaFile, player: AVPlayer?, offsetY: CGFloat, isTopPlayer: Bool, aspectFill: Bool, seekDuration: Double) {
         self.mediaFile = mediaFile
         self.player = player
         self.offsetY = offsetY
         self.isTopPlayer = isTopPlayer
         self.aspectFill = aspectFill
+        self.seekDuration = seekDuration
         
         
 //        print("MediaDisplayView showing \(mediaFile.name)")
@@ -34,8 +36,9 @@ struct MediaDisplayView: View {
                     player: player,
                     offsetY: offsetY,
                     isTopPlayer: isTopPlayer,
-                    aspectFill: aspectFill
-                    )
+                    aspectFill: aspectFill,
+                    seekDuration: seekDuration
+                )
             case .image:
                 MediaImageView(url: mediaFile.url, slideOffset: offsetY)
             case .gif:

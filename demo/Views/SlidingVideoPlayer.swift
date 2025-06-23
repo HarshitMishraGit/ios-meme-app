@@ -47,9 +47,9 @@ struct SlidingVideoPlayer: View {
     let offsetY: CGFloat
     let isTopPlayer: Bool
     let aspectFill: Bool
+    let seekDuration: Double
 
     @State private var isPlaying: Bool = true
-    @State private var seekDuration: Double = 10
     
     @State private var lastDoubleTapLocation: CGPoint = .zero
 

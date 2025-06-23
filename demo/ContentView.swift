@@ -82,6 +82,8 @@ struct ContentView: View {
     @State private var shuffledMediaFiles: [MediaFile] = [] // Changed from shuffledVideoFiles
 
     @AppStorage("VideoAspectMode") private var isAspectFill: Bool = true // Keep for video aspect
+    @AppStorage("SeekDuration") private var storedSeekDuration: Double = 5.0
+    @State private var seekDuration: Double = 5.0
 
     var body: some View {
         ZStack {
@@ -95,7 +97,8 @@ struct ContentView: View {
                         player: players[activePlayerIndex],
                         offsetY: slideOffset,
                         isTopPlayer: true,
-                        aspectFill: isAspectFill
+                        aspectFill: isAspectFill,
+                        seekDuration: seekDuration
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(y: slideOffset)
@@ -109,7 +112,8 @@ struct ContentView: View {
                             player: players[(activePlayerIndex + 1) % 2], // The other player slot
                             offsetY: slideOffset > 0 ? -geometry.size.height : geometry.size.height,
                             isTopPlayer: false, // This is not the primary interactive player
-                            aspectFill: isAspectFill
+                            aspectFill: isAspectFill,
+                            seekDuration: seekDuration
                         )
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .offset(y: slideOffset > 0 ? -geometry.size.height : geometry.size.height)
@@ -149,7 +153,8 @@ struct ContentView: View {
                 isPickerPresented: $isPickerPresented,
                 videoFiles: mediaFiles, // Pass mediaFiles
                 currentVideoIndex: currentMediaIndex, // Pass currentMediaIndex
-                playRandomVideo: playRandomMedia // Renamed for clarity
+                playRandomVideo: playRandomMedia, // Renamed for clarity
+                seekDuration: $seekDuration
             )
 
             if !mediaFiles.isEmpty {

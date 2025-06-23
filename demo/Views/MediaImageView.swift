@@ -9,19 +9,22 @@ import SwiftUI
 
 struct MediaImageView: View {
     let url: URL
-    let slideOffset: CGFloat // To participate in the swipe animation
+    let aspectFill : Bool // To participate in the swipe animation
 
     var body: some View {
-        if let uiImage = loadImage(from: url) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFit() // Or .scaledToFill() depending on desired behavior
-                .ignoresSafeArea()
-        } else {
-            Color.black
-                .overlay(Text("Failed to load image").foregroundColor(.red))
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            if let uiImage = loadImage(from: url) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: aspectFill ? .fill : .fit)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+            } else {
+                Color.black
+                    .overlay(Text("Failed to load image").foregroundColor(.red))
+            }
         }
+        .ignoresSafeArea()
     }
 
     private func loadImage(from url: URL) -> UIImage? {

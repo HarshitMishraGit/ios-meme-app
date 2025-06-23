@@ -40,7 +40,7 @@ struct MediaDisplayView: View {
                     seekDuration: seekDuration
                 )
             case .image:
-                MediaImageView(url: mediaFile.url, slideOffset: offsetY)
+                MediaImageView(url: mediaFile.url, aspectFill:aspectFill)
             case .gif:
                 // Assuming you're still using MediaImageView for GIFs,
                 // or you'd use MediaGifView if you implemented it.

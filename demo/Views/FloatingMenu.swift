@@ -32,6 +32,8 @@ struct FloatingMenu: View {
     let canGoPrev: Bool
     let canGoNext: Bool
     @Binding var seekDuration: Double
+    @Binding var selectedMediaTypes: Set<MediaType>
+    let onMediaTypeChange: (Set<MediaType>) -> Void
 
     @State private var dragOffset: CGSize = .zero
     @State private var corner: MenuCorner = Self.loadCorner()
@@ -40,6 +42,7 @@ struct FloatingMenu: View {
     @AppStorage("VideoAspectMode") private var isAspectFill: Bool = true
     @AppStorage("SeekDuration") private var storedSeekDuration: Double = 5.0
     @State private var showSeekOptions: Bool = false
+    @State private var showMediaTypeOptions: Bool = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -153,6 +156,27 @@ struct FloatingMenu: View {
                         }
                         if showSeekOptions {
                             SeekSlider(seekDuration: $seekDuration, storedSeekDuration: $storedSeekDuration)
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
+                    }
+
+                    // Media Type Filter Button + Toggles
+                    HStack(alignment: .center, spacing: 8) {
+                        Button(action: { withAnimation { showMediaTypeOptions.toggle() } }) {
+                            VStack {
+                                Image(systemName: "rectangle.stack")
+                                    .font(.title3)
+                                    .foregroundColor(.white)
+                                    .frame(width: 36, height: 36)
+                                    .background(Color.black.opacity(0.7))
+                                    .clipShape(Circle())
+                                Text("Type")
+                                    .font(.caption2)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        if showMediaTypeOptions {
+                            MediaTypeToggles(selectedTypes: $selectedMediaTypes, onChange: onMediaTypeChange)
                                 .transition(.move(edge: .trailing).combined(with: .opacity))
                         }
                     }
@@ -357,6 +381,66 @@ struct RandomHistoryButton: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: dragOffset)
+        }
+    }
+}
+
+struct MediaTypeToggles: View {
+    @Binding var selectedTypes: Set<MediaType>
+    let onChange: (Set<MediaType>) -> Void
+    var body: some View {
+        HStack(spacing: 10) {
+            ToggleIcon(
+                icon: "film",
+                label: "Video",
+                isOn: selectedTypes.contains(.video),
+                onTap: { toggle(.video) }
+            )
+            ToggleIcon(
+                icon: "photo",
+                label: "Image",
+                isOn: selectedTypes.contains(.image),
+                onTap: { toggle(.image) }
+            )
+            ToggleIcon(
+                icon: "sparkles.tv",
+                label: "GIF",
+                isOn: selectedTypes.contains(.gif),
+                onTap: { toggle(.gif) }
+            )
+        }
+    }
+    private func toggle(_ type: MediaType) {
+        var newSet = selectedTypes
+        if newSet.contains(type) {
+            if newSet.count > 1 {
+                newSet.remove(type)
+            }
+        } else {
+            newSet.insert(type)
+        }
+        onChange(newSet)
+    }
+}
+
+struct ToggleIcon: View {
+    let icon: String
+    let label: String
+    let isOn: Bool
+    let onTap: () -> Void
+    var body: some View {
+        VStack {
+            Button(action: onTap) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(isOn ? .blue : .gray)
+                    .frame(width: 36, height: 36)
+                    .background(isOn ? Color.white.opacity(0.8) : Color.black.opacity(0.5))
+                    .clipShape(Circle())
+            }
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(isOn ? .blue : .gray)
         }
     }
 }

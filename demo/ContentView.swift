@@ -9,17 +9,20 @@ import UniformTypeIdentifiers // Import for UTType to help with file types
 
 struct ContentView: View {
     @State private var isPickerPresented = false
-    @State private var mediaFiles: [MediaFile] = [] // Changed from videoFiles
-    @State private var currentMediaIndex = 0 // Changed from currentVideoIndex
+    @State private var mediaFiles: [MediaFile] = [] // All loaded files
+    @State private var filteredMediaFiles: [MediaFile] = [] // Filtered by type
+    @State private var currentMediaIndex = 0 // Index in filteredMediaFiles
     @State private var showMenu = false
     @State private var currentAccessingURL: URL?
     @State private var slideOffset: CGFloat = 0
     @State private var isAnimating = false
     @State private var activePlayerIndex = 0
-    @State private var players: [AVPlayer?] = [nil, nil] // Still for videos
-    @State private var shuffledMediaFiles: [MediaFile] = [] // Changed from shuffledVideoFiles
-    @State private var randomHistory: [Int] = [] // Indices of mediaFiles shown in random mode
-    @State private var randomHistoryIndex: Int = -1 // Current position in history
+    @State private var players: [AVPlayer?] = [nil, nil]
+    @State private var shuffledMediaFiles: [MediaFile] = []
+    @State private var randomHistory: [Int] = []
+    @State private var randomHistoryIndex: Int = -1
+    @AppStorage("SelectedMediaTypes") private var storedMediaTypes: String = "video,image,gif"
+    @State private var selectedMediaTypes: Set<MediaType> = [.video, .image, .gif]
 
     @AppStorage("VideoAspectMode") private var isAspectFill: Bool = true // Keep for video aspect
     @AppStorage("SeekDuration") private var storedSeekDuration: Double = 5.0
@@ -27,13 +30,10 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            if !mediaFiles.isEmpty {
-                // Render the current media based on its type
+            if !filteredMediaFiles.isEmpty {
                 GeometryReader { geometry in
-                    // Render the active media player/view
-                    // This is the "top" player that responds to current interaction
                     MediaDisplayView(
-                        mediaFile: mediaFiles[currentMediaIndex],
+                        mediaFile: filteredMediaFiles[currentMediaIndex],
                         player: players[activePlayerIndex],
                         offsetY: slideOffset,
                         isTopPlayer: true,
@@ -43,15 +43,13 @@ struct ContentView: View {
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(y: slideOffset)
 
-                    // Render the inactive/preloaded media player/view for smooth transitions
-                    // This player is off-screen, ready to slide in
-                    let preloadIndex = (currentMediaIndex + (slideOffset > 0 ? -1 : 1) + mediaFiles.count) % mediaFiles.count
-                    if mediaFiles.indices.contains(preloadIndex) {
+                    let preloadIndex = (currentMediaIndex + (slideOffset > 0 ? -1 : 1) + filteredMediaFiles.count) % filteredMediaFiles.count
+                    if filteredMediaFiles.indices.contains(preloadIndex) {
                         MediaDisplayView(
-                            mediaFile: mediaFiles[preloadIndex],
-                            player: players[(activePlayerIndex + 1) % 2], // The other player slot
+                            mediaFile: filteredMediaFiles[preloadIndex],
+                            player: players[(activePlayerIndex + 1) % 2],
                             offsetY: slideOffset > 0 ? -geometry.size.height : geometry.size.height,
-                            isTopPlayer: false, // This is not the primary interactive player
+                            isTopPlayer: false,
                             aspectFill: isAspectFill,
                             seekDuration: seekDuration
                         )
@@ -77,7 +75,7 @@ struct ContentView: View {
                 Color.black
                     .ignoresSafeArea()
                 VStack {
-                    Image(systemName: "photo.on.rectangle.angled") // More general icon
+                    Image(systemName: "photo.on.rectangle.angled")
                         .font(.system(size: 80))
                         .foregroundColor(.white.opacity(0.6))
                     Text("Select a folder to start viewing media")
@@ -91,21 +89,23 @@ struct ContentView: View {
             FloatingMenu(
                 showMenu: $showMenu,
                 isPickerPresented: $isPickerPresented,
-                videoFiles: mediaFiles, // Pass mediaFiles
-                currentVideoIndex: currentMediaIndex, // Pass currentMediaIndex
-                playRandomVideo: playRandomMedia, // Renamed for clarity
+                videoFiles: filteredMediaFiles,
+                currentVideoIndex: currentMediaIndex,
+                playRandomVideo: playRandomMedia,
                 playRandomPrev: playRandomPrev,
                 playRandomNext: playRandomNext,
                 canGoPrev: randomHistoryIndex > 0,
                 canGoNext: randomHistoryIndex >= 0 && randomHistoryIndex < randomHistory.count - 1,
-                seekDuration: $seekDuration
+                seekDuration: $seekDuration,
+                selectedMediaTypes: $selectedMediaTypes,
+                onMediaTypeChange: handleMediaTypeChange
             )
 
-            if !mediaFiles.isEmpty {
+            if !filteredMediaFiles.isEmpty {
                 VStack {
                     Spacer()
                     HStack {
-                        Text(mediaFiles[currentMediaIndex].name)
+                        Text(filteredMediaFiles[currentMediaIndex].name)
                             .font(.headline)
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
@@ -121,6 +121,13 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            if !storedMediaTypes.isEmpty {
+                let types = storedMediaTypes.split(separator: ",").compactMap { MediaType(rawValue: String($0)) }
+                if !types.isEmpty {
+                    selectedMediaTypes = Set(types)
+                }
+            }
+            filteredMediaFiles = mediaFiles.filter { selectedMediaTypes.contains($0.type) }
             loadSavedFolderIfAny()
         }
         .sheet(isPresented: $isPickerPresented) {
@@ -144,20 +151,18 @@ struct ContentView: View {
             let direction: Int = value.translation.height < 0 ? 1 : -1
             let nextIndex = currentMediaIndex + direction
 
-            guard nextIndex >= 0, nextIndex < mediaFiles.count else {
+            guard nextIndex >= 0, nextIndex < filteredMediaFiles.count else {
                 withAnimation { slideOffset = 0 }
                 isAnimating = false
                 return
             }
 
-            // Clean up the current player if it's a video
-            if mediaFiles[currentMediaIndex].type == .video {
+            if filteredMediaFiles[currentMediaIndex].type == .video {
                 players[activePlayerIndex]?.pause()
                 players[activePlayerIndex] = nil
             }
 
-            // Prepare the next media item
-            let nextMedia = mediaFiles[nextIndex]
+            let nextMedia = filteredMediaFiles[nextIndex]
             if nextMedia.type == .video {
                 let inactiveIndex = (activePlayerIndex + 1) % 2
                 if let url = nextMedia.getAccessibleURL() {
@@ -174,10 +179,9 @@ struct ContentView: View {
                 slideOffset = 0
                 isAnimating = false
 
-                // Start playing the new video if it's a video
-                if mediaFiles[currentMediaIndex].type == .video {
+                if filteredMediaFiles[currentMediaIndex].type == .video {
                     let inactiveIndex = (activePlayerIndex + 1) % 2
-                    activePlayerIndex = inactiveIndex // Switch to the preloaded player
+                    activePlayerIndex = inactiveIndex
                     players[activePlayerIndex]?.play()
                 }
             }
@@ -189,40 +193,32 @@ struct ContentView: View {
     }
 
     private func playRandomMedia() {
-        guard !mediaFiles.isEmpty else { return }
+        guard !filteredMediaFiles.isEmpty else { return }
         cleanupCurrentAccess()
-        // If we are not at the end of history, truncate forward history
         if randomHistoryIndex < randomHistory.count - 1 {
             randomHistory = Array(randomHistory.prefix(randomHistoryIndex + 1))
         }
-        // Reset if exhausted
         if shuffledMediaFiles.isEmpty {
-            shuffledMediaFiles = mediaFiles.shuffled()
+            shuffledMediaFiles = filteredMediaFiles.shuffled()
         }
-        // Pop one random item (from front)
         let nextMedia = shuffledMediaFiles.removeFirst()
-        // Get the new index in main list (for UI display)
-        if let newIndex = mediaFiles.firstIndex(of: nextMedia) {
+        if let newIndex = filteredMediaFiles.firstIndex(of: nextMedia) {
             currentMediaIndex = newIndex
             randomHistory.append(newIndex)
             randomHistoryIndex = randomHistory.count - 1
         }
-        // Clean up current player if it's a video
         players[activePlayerIndex]?.pause()
-        if mediaFiles[currentMediaIndex].type == .video {
+        if filteredMediaFiles[currentMediaIndex].type == .video {
             players[activePlayerIndex] = nil
         }
-        
-        // Load and play the new media
         if let url = nextMedia.getAccessibleURL() {
             currentAccessingURL = url
             if nextMedia.type == .video {
-                let inactiveIndex = (activePlayerIndex + 1) % 2 // Use the inactive player slot
+                let inactiveIndex = (activePlayerIndex + 1) % 2
                 players[inactiveIndex] = AVPlayer(url: url)
-                activePlayerIndex = inactiveIndex // Make it the active player
+                activePlayerIndex = inactiveIndex
                 players[activePlayerIndex]?.play()
             }
-            // For images/GIFs, simply setting currentMediaIndex will trigger the view update
         }
     }
 
@@ -231,10 +227,9 @@ struct ContentView: View {
         randomHistoryIndex -= 1
         let prevIndex = randomHistory[randomHistoryIndex]
         currentMediaIndex = prevIndex
-        // Update player for video
         players[activePlayerIndex]?.pause()
         players[activePlayerIndex] = nil
-        let media = mediaFiles[prevIndex]
+        let media = filteredMediaFiles[prevIndex]
         if media.type == .video, let url = media.getAccessibleURL() {
             let inactiveIndex = (activePlayerIndex + 1) % 2
             players[inactiveIndex] = AVPlayer(url: url)
@@ -248,10 +243,9 @@ struct ContentView: View {
         randomHistoryIndex += 1
         let nextIndex = randomHistory[randomHistoryIndex]
         currentMediaIndex = nextIndex
-        // Update player for video
         players[activePlayerIndex]?.pause()
         players[activePlayerIndex] = nil
-        let media = mediaFiles[nextIndex]
+        let media = filteredMediaFiles[nextIndex]
         if media.type == .video, let url = media.getAccessibleURL() {
             let inactiveIndex = (activePlayerIndex + 1) % 2
             players[inactiveIndex] = AVPlayer(url: url)
@@ -265,12 +259,11 @@ struct ContentView: View {
         activePlayerIndex = 0 // Reset active player to the first one
         players[1]?.pause()
         players[1] = nil
-        guard !mediaFiles.isEmpty else { return }
-        let currentMedia = mediaFiles[currentMediaIndex]
+        guard !filteredMediaFiles.isEmpty else { return }
+        let currentMedia = filteredMediaFiles[currentMediaIndex]
         if let url = currentMedia.getAccessibleURL() {
             currentAccessingURL = url
             if currentMedia.type == .video {
-                print("Playing video \(currentMedia.name)")
                 players[0] = AVPlayer(url: url)
                 players[0]?.play()
             }
@@ -319,31 +312,45 @@ struct ContentView: View {
                 includingPropertiesForKeys: [.isRegularFileKey],
                 options: [.skipsHiddenFiles]
             )
-
             var found: [MediaFile] = []
-
             for url in contents {
                 let values = try url.resourceValues(forKeys: [.isRegularFileKey])
                 if values.isRegularFile == true {
                     let mediaFile = MediaFile(url: url)
-                    if mediaFile.type != .unknown { // Only add supported types
+                    if mediaFile.type != .unknown {
                         found.append(mediaFile)
                     }
                 }
             }
-
             print("Found content in the folder :", found)
             found.shuffle()
-
             DispatchQueue.main.async {
                 mediaFiles = found
+                filteredMediaFiles = found.filter { selectedMediaTypes.contains($0.type) }
                 currentMediaIndex = 0
-                shuffledMediaFiles = found.shuffled()
+                shuffledMediaFiles = filteredMediaFiles.shuffled()
                 preloadMedia()
             }
-
         } catch {
             print("Failed to load saved folder contents: \(error)")
         }
+    }
+
+    private func handleMediaTypeChange(_ newTypes: Set<MediaType>) {
+        guard !newTypes.isEmpty else { return }
+        selectedMediaTypes = newTypes
+        storedMediaTypes = newTypes.map { $0.rawValue }.joined(separator: ",")
+        filteredMediaFiles = mediaFiles.filter { newTypes.contains($0.type) }
+        // Kill all video players if videos are removed from filter
+        if !newTypes.contains(.video) {
+            for i in players.indices {
+                players[i]?.pause()
+                players[i] = nil
+            }
+        }
+        currentMediaIndex = 0
+        randomHistory = []
+        randomHistoryIndex = -1
+        shuffledMediaFiles = filteredMediaFiles.shuffled()
     }
 }

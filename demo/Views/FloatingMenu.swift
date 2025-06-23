@@ -23,7 +23,7 @@ import SwiftUI
 struct FloatingMenu: View {
     @Binding var showMenu: Bool
     @Binding var isPickerPresented: Bool
-    let videoFiles: [VideoFile]
+    let videoFiles: [MediaFile]
     let currentVideoIndex: Int
     let playRandomVideo: () -> Void
 

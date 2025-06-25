@@ -109,7 +109,8 @@ struct ContentView: View {
                 seekDuration: $seekDuration,
                 selectedMediaTypes: $selectedMediaTypes,
                 onMediaTypeChange: handleMediaTypeChange,
-                playerType: $playerType
+                playerType: $playerType,
+                isVideoPlaying: !filteredMediaFiles.isEmpty && filteredMediaFiles[currentMediaIndex].type == .video
             )
 
             if !filteredMediaFiles.isEmpty {

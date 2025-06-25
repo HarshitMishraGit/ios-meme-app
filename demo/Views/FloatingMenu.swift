@@ -35,6 +35,7 @@ struct FloatingMenu: View {
     @Binding var selectedMediaTypes: Set<MediaType>
     let onMediaTypeChange: (Set<MediaType>) -> Void
     @Binding var playerType: VideoPlayerType
+    let isVideoPlaying: Bool
 
     @State private var dragOffset: CGSize = .zero
     @State private var corner: MenuCorner = Self.loadCorner()
@@ -114,7 +115,10 @@ struct FloatingMenu: View {
                             .padding(.vertical, 4)
                             .background(Color.black.opacity(0.6))
                             .cornerRadius(8)
-                        
+                    }
+
+                       // Only show Player Type and Seek if video is playing
+                    if isVideoPlaying {
                         // Player Type Toggle
                         Button(action: {
                             playerType = (playerType == .native) ? .sliding : .native
@@ -131,50 +135,26 @@ struct FloatingMenu: View {
                             .background(Color.black.opacity(0.6))
                             .cornerRadius(12)
                         }
-                    }
 
-                    // Random + History Controls
-                    RandomHistoryButton(
-                        playRandom: playRandomVideo,
-                        playPrev: playRandomPrev,
-                        playNext: playRandomNext,
-                        canGoPrev: canGoPrev,
-                        canGoNext: canGoNext
-                    )
-
-                    Button(action: {
-                        isAspectFill.toggle()
-                    }) {
-                        VStack {
-                            Image(systemName: isAspectFill ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
-                                .font(.title3)
-                            Text(isAspectFill ? "Fill" : "Fit")
-                                .font(.caption)
-                        }
-                        .foregroundColor(.white)
-                        .frame(width: 60, height: 50)
-                        .background(Color.black.opacity(0.6))
-                        .cornerRadius(12)
-                    }
-
-                    // Seek Duration Button + Slider
-                    HStack(alignment: .center, spacing: 8) {
-                        Button(action: { withAnimation { showSeekOptions.toggle() } }) {
-                            VStack {
-                                Image(systemName: "clock")
-                                    .font(.title3)
-                                    .foregroundColor(.white)
-                                    .frame(width: 36, height: 36)
-                                    .background(Color.black.opacity(0.7))
-                                    .clipShape(Circle())
-                                Text("Seek")
-                                    .font(.caption2)
-                                    .foregroundColor(.white)
+                        // Seek Duration Button + Slider
+                        HStack(alignment: .center, spacing: 8) {
+                            Button(action: { withAnimation { showSeekOptions.toggle() } }) {
+                                VStack {
+                                    Image(systemName: "clock")
+                                        .font(.title3)
+                                        .foregroundColor(.white)
+                                        .frame(width: 36, height: 36)
+                                        .background(Color.black.opacity(0.7))
+                                        .clipShape(Circle())
+                                    Text("Seek")
+                                        .font(.caption2)
+                                        .foregroundColor(.white)
+                                }
                             }
-                        }
-                        if showSeekOptions {
-                            SeekSlider(seekDuration: $seekDuration, storedSeekDuration: $storedSeekDuration)
-                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                            if showSeekOptions {
+                                SeekSlider(seekDuration: $seekDuration, storedSeekDuration: $storedSeekDuration)
+                                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                            }
                         }
                     }
 
@@ -197,6 +177,31 @@ struct FloatingMenu: View {
                             MediaTypeToggles(selectedTypes: $selectedMediaTypes, onChange: onMediaTypeChange)
                                 .transition(.move(edge: .trailing).combined(with: .opacity))
                         }
+                    }
+                    
+                    
+                    // Random + History Controls
+                    RandomHistoryButton(
+                        playRandom: playRandomVideo,
+                        playPrev: playRandomPrev,
+                        playNext: playRandomNext,
+                        canGoPrev: canGoPrev,
+                        canGoNext: canGoNext
+                    )
+
+                    Button(action: {
+                        isAspectFill.toggle()
+                    }) {
+                        VStack {
+                            Image(systemName: isAspectFill ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
+                                .font(.title3)
+                            Text(isAspectFill ? "Fill" : "Fit")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.white)
+                        .frame(width: 60, height: 50)
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(12)
                     }
                 }
                 .padding(12)

@@ -149,13 +149,6 @@ demo/
 
 ---
 
-## License
-
-[MIT](LICENSE)  
-_Replace with your license as appropriate._
-
----
-
 **Note:**
 
 - For best results, use folders containing supported media types (videos, images, GIFs).

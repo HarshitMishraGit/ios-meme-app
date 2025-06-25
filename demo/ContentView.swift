@@ -7,6 +7,11 @@ import SwiftUI
 import AVKit
 import UniformTypeIdentifiers // Import for UTType to help with file types
 
+enum VideoPlayerType: String, CaseIterable, Codable {
+    case sliding
+    case native
+}
+
 struct ContentView: View {
     @State private var isPickerPresented = false
     @State private var mediaFiles: [MediaFile] = [] // All loaded files
@@ -28,6 +33,9 @@ struct ContentView: View {
     @AppStorage("SeekDuration") private var storedSeekDuration: Double = 5.0
     @State private var seekDuration: Double = 5.0
 
+    @State private var playerType: VideoPlayerType = .sliding
+    @AppStorage("PlayerType") private var storedPlayerType: String = "sliding"
+
     var body: some View {
         ZStack {
             if !filteredMediaFiles.isEmpty {
@@ -38,7 +46,8 @@ struct ContentView: View {
                         offsetY: slideOffset,
                         isTopPlayer: true,
                         aspectFill: isAspectFill,
-                        seekDuration: seekDuration
+                        seekDuration: seekDuration,
+                        playerType: playerType
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(y: slideOffset)
@@ -51,7 +60,8 @@ struct ContentView: View {
                             offsetY: slideOffset > 0 ? -geometry.size.height : geometry.size.height,
                             isTopPlayer: false,
                             aspectFill: isAspectFill,
-                            seekDuration: seekDuration
+                            seekDuration: seekDuration,
+                            playerType: playerType
                         )
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .offset(y: slideOffset > 0 ? -geometry.size.height : geometry.size.height)
@@ -98,7 +108,8 @@ struct ContentView: View {
                 canGoNext: randomHistoryIndex >= 0 && randomHistoryIndex < randomHistory.count - 1,
                 seekDuration: $seekDuration,
                 selectedMediaTypes: $selectedMediaTypes,
-                onMediaTypeChange: handleMediaTypeChange
+                onMediaTypeChange: handleMediaTypeChange,
+                playerType: $playerType
             )
 
             if !filteredMediaFiles.isEmpty {
@@ -127,8 +138,12 @@ struct ContentView: View {
                     selectedMediaTypes = Set(types)
                 }
             }
+            playerType = VideoPlayerType(rawValue: storedPlayerType) ?? .sliding
             filteredMediaFiles = mediaFiles.filter { selectedMediaTypes.contains($0.type) }
             loadSavedFolderIfAny()
+        }
+        .onChange(of: playerType) { _, newType in
+            storedPlayerType = newType.rawValue
         }
         .sheet(isPresented: $isPickerPresented) {
             FolderPicker(mediaFiles: $mediaFiles, currentIndex: $currentMediaIndex) // Update picker

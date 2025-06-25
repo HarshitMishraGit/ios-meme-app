@@ -15,14 +15,16 @@ struct MediaDisplayView: View {
     let isTopPlayer: Bool
     let aspectFill: Bool
     let seekDuration: Double
+    let playerType: VideoPlayerType
     
-    init(mediaFile: MediaFile, player: AVPlayer?, offsetY: CGFloat, isTopPlayer: Bool, aspectFill: Bool, seekDuration: Double) {
+    init(mediaFile: MediaFile, player: AVPlayer?, offsetY: CGFloat, isTopPlayer: Bool, aspectFill: Bool, seekDuration: Double, playerType: VideoPlayerType) {
         self.mediaFile = mediaFile
         self.player = player
         self.offsetY = offsetY
         self.isTopPlayer = isTopPlayer
         self.aspectFill = aspectFill
         self.seekDuration = seekDuration
+        self.playerType = playerType
         
         
 //        print("MediaDisplayView showing \(mediaFile.name)")
@@ -32,13 +34,20 @@ struct MediaDisplayView: View {
         Group {
             switch mediaFile.type {
             case .video:
-                SlidingVideoPlayer(
-                    player: player,
-                    offsetY: offsetY,
-                    isTopPlayer: isTopPlayer,
-                    aspectFill: aspectFill,
-                    seekDuration: seekDuration
-                )
+                if playerType == .native {
+                    NativeVideoPlayer(
+                        player: player,
+                        aspectFill: aspectFill
+                    )
+                } else {
+                    SlidingVideoPlayer(
+                        player: player,
+                        offsetY: offsetY,
+                        isTopPlayer: isTopPlayer,
+                        aspectFill: aspectFill,
+                        seekDuration: seekDuration
+                    )
+                }
             case .image:
                 MediaImageView(url: mediaFile.url, aspectFill:aspectFill)
             case .gif:

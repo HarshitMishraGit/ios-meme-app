@@ -34,6 +34,7 @@ struct FloatingMenu: View {
     @Binding var seekDuration: Double
     @Binding var selectedMediaTypes: Set<MediaType>
     let onMediaTypeChange: (Set<MediaType>) -> Void
+    @Binding var playerType: VideoPlayerType
 
     @State private var dragOffset: CGSize = .zero
     @State private var corner: MenuCorner = Self.loadCorner()
@@ -113,6 +114,23 @@ struct FloatingMenu: View {
                             .padding(.vertical, 4)
                             .background(Color.black.opacity(0.6))
                             .cornerRadius(8)
+                        
+                        // Player Type Toggle
+                        Button(action: {
+                            playerType = (playerType == .native) ? .sliding : .native
+                        }) {
+                            VStack {
+                                Image(systemName: "film")
+                                    .font(.title3)
+                                    .foregroundColor(playerType == .native ? .blue : .white)
+                                Text("Native")
+                                    .font(.caption)
+                                    .foregroundColor(playerType == .native ? .blue : .white)
+                            }
+                            .frame(width: 60, height: 50)
+                            .background(Color.black.opacity(0.6))
+                            .cornerRadius(12)
+                        }
                     }
 
                     // Random + History Controls

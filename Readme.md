@@ -1,4 +1,4 @@
-# iPad Media Player Demo App
+# Meme App
 
 <!--
 ## Screenshots
@@ -10,6 +10,11 @@ _Add screenshots of your app here. For example:_
 | ![Home](screenshots/home.png) | ![Player](screenshots/player.png) | ![Menu](screenshots/menu.png) |
 -->
 
+![IMG_1585](https://github.com/user-attachments/assets/906fad56-88bb-43f4-a579-4a3fb8127850)
+
+![IMG_1587](https://github.com/user-attachments/assets/501179aa-f9cc-45f1-a1f0-205216b51889)
+
+![IMG_1588](https://github.com/user-attachments/assets/10270c60-87e2-4ced-bce4-2f03cf9b223b)
 
 
 ---
@@ -100,21 +105,28 @@ This is a SwiftUI-based iPad app demo for browsing, filtering, and playing media
 
 ```
 demo/
-  ├── demo/
-  │   ├── ContentView.swift           # Main app view
-  │   ├── demoApp.swift               # App entry point
-  │   ├── Item.swift                  # Data model for items
-  │   ├── Models/
-  │   │   └── MediaFile.swift         # Media file model
-  │   └── Views/
-  │       ├── FloatingMenu.swift      # Floating menu UI and logic
-  │       ├── FolderPicker.swift      # Folder picker view
-  │       ├── MediaDisplayView.swift  # Main media display
-  │       ├── MediaGifView.swift      # GIF display
-  │       ├── MediaImageView.swift    # Image display
-  │       └── SlidingVideoPlayer.swift# Video player with controls
-  ├── demoTests/                      # Unit tests
-  └── demoUITests/                    # UI tests
+├── demo/
+│   ├── ContentView.swift                # Main app view
+│   ├── demoApp.swift                    # App entry point
+│   ├── Models/
+│   │   └── MediaFile.swift              # Media file model
+│   └── Views/
+│       ├── FloatingMenu.swift           # Floating menu UI and logic
+│       ├── FolderPicker.swift           # Folder picker view
+│       ├── MediaDisplayView.swift       # Main media display
+│       ├── MediaGifView.swift           # GIF display
+│       ├── MediaImageView.swift         # Image display
+│       └── SlidingVideoPlayer.swift     # Video player with controls
+├── demo.xcodeproj/                      # Xcode project files
+│   ├── project.pbxproj
+│   ├── project.xcworkspace/
+│   └── xcuserdata/
+├── demoTests/
+│   └── demoTests.swift                  # Unit tests
+├── demoUITests/
+│   ├── demoUITests.swift                # UI tests
+│   └── demoUITestsLaunchTests.swift
+└── Readme.md                            # Project documentation
 ```
 
 ---
